@@ -3,9 +3,9 @@ chrome.runtime.onMessage.addListener((message) => {
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icon.png',
-      title: 'שינוי זוהה!',
-      message: `הערך החדש הוא: ${message.newValue}`,
+      title: 'מחיר השתנה!',
+      message: `הערך החדש: ${message.newValue}`,
       priority: 2
     });
   }
-});
+}); 

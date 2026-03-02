@@ -1,9 +1,11 @@
-// מאזין להודעה מהפופאפ דרך החלון
-window.addEventListener("message", (event) => {
-  if (event.data.type === "START_ELEMENT_SELECTION") {
-    enableSelectionMode();
-  }
-});
+console.log("Tracker content script loaded");
+
+function getCleanUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.origin + urlObj.pathname;
+  } catch(e) { return url; }
+}
 
 function enableSelectionMode() {
   document.body.style.cursor = "crosshair";
@@ -20,7 +22,7 @@ function enableSelectionMode() {
     e.stopPropagation();
     
     const selector = generateQuerySelector(e.target);
-    const cleanUrl = window.location.origin + window.location.pathname;
+    const cleanUrl = getCleanUrl(window.location.href);
 
     chrome.storage.local.get(['trackers'], (data) => {
       let trackers = data.trackers || {};
@@ -38,15 +40,15 @@ function enableSelectionMode() {
   };
 
   const cleanUp = () => {
-    document.removeEventListener('mouseover', onMouseOver);
-    document.removeEventListener('mouseout', onMouseOut);
+    document.removeEventListener('mouseover', onMouseOver, true);
+    document.removeEventListener('mouseout', onMouseOut, true);
     document.removeEventListener('click', onClick, true);
     document.body.style.cursor = "default";
   };
 
-  document.addEventListener('mouseover', onMouseOver);
-  document.addEventListener('mouseout', onMouseOut);
-  document.addEventListener('click', onClick, true); // true חשוב כדי לעצור לחיצות של האתר
+  document.addEventListener('mouseover', onMouseOver, true);
+  document.addEventListener('mouseout', onMouseOut, true);
+  document.addEventListener('click', onClick, true);
 }
 
 function generateQuerySelector(el) {
@@ -68,23 +70,34 @@ function generateQuerySelector(el) {
   return path.join(" > ");
 }
 
-// הרצת המעקב
+// לוגיקת מעקב ברקע
 chrome.storage.local.get(['trackers'], (data) => {
-  const cleanUrl = window.location.origin + window.location.pathname;
+  const cleanUrl = getCleanUrl(window.location.href);
   const tracker = data.trackers ? data.trackers[cleanUrl] : null;
 
   if (tracker && tracker.selector) {
-    const target = document.querySelector(tracker.selector);
-    if (target) {
-      const observer = new MutationObserver(() => {
-        const newValue = target.innerText.trim();
-        if (newValue !== tracker.lastValue) {
-          chrome.runtime.sendMessage({ type: "CHANGE_DETECTED", newValue });
-          tracker.lastValue = newValue;
+    const checkInterval = setInterval(() => {
+      const target = document.querySelector(tracker.selector);
+      if (target) {
+        clearInterval(checkInterval);
+        
+        // סינכרון ערך ראשוני
+        const currentVal = target.innerText.trim();
+        if (tracker.lastValue !== currentVal) {
+          tracker.lastValue = currentVal;
           chrome.storage.local.set({ trackers: data.trackers });
         }
-      });
-      observer.observe(target, { childList: true, characterData: true, subtree: true });
-    }
+
+        const observer = new MutationObserver(() => {
+          const newVal = target.innerText.trim();
+          if (newVal !== tracker.lastValue) {
+            chrome.runtime.sendMessage({ type: "CHANGE_DETECTED", newValue: newVal });
+            tracker.lastValue = newVal;
+            chrome.storage.local.set({ trackers: data.trackers });
+          }
+        });
+        observer.observe(target, { childList: true, characterData: true, subtree: true });
+      }
+    }, 1000);
   }
 });

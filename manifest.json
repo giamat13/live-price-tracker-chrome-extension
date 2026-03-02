@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Live Price Tracker",
+  "name": "Live Price Tracker PRO",
   "version": "1.0.0",
-  "permissions": ["notifications", "storage", "scripting", "activeTab"],
+  "permissions": ["notifications", "storage", "scripting", "alarms"],
   "action": {
     "default_popup": "popup.html"
   },
