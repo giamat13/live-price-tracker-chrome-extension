@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Live Price Tracker",
+  "version": "1.0.0",
+  "permissions": ["notifications", "storage", "scripting", "activeTab"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}

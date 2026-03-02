@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { width: 220px; padding: 15px; font-family: sans-serif; text-align: center; }
+    button { 
+      width: 100%; padding: 12px; border: none; cursor: pointer; 
+      border-radius: 8px; font-weight: bold; margin-bottom: 8px;
+    }
+    #startSelection { background-color: #4285f4; color: white; }
+    #deleteTrack { background-color: #ea4335; color: white; display: none; }
+    button:hover { opacity: 0.9; }
+    p { font-size: 11px; color: #666; }
+  </style>
+</head>
+<body>
+  <button id="startSelection">בחר אלמנט למעקב</button>
+  <button id="deleteTrack">מחק מעקב מהדף הנוכחי</button>
+  <p id="statusText">אין מעקב פעיל בדף זה</p>
+  <script src="popup.js"></script>
+</body>
+</html>
