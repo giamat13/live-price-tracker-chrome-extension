@@ -1,5 +1,4 @@
-console.log("Tracker content script loaded");
-
+// פונקציית עזר לניקוי ה-URL כדי לשמור על עקביות בזיכרון
 function getCleanUrl(url) {
   try {
     const urlObj = new URL(url);
@@ -7,6 +6,16 @@ function getCleanUrl(url) {
   } catch(e) { return url; }
 }
 
+// מאזין להודעות מהפופאפ להפעלת מצב בחירה
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "ENABLE_SELECTION_MODE") {
+    enableSelectionMode();
+    sendResponse({ status: "ok" });
+  }
+  return true;
+});
+
+// פונקציה להפעלת מצב בחירת אלמנט ויזואלי על המסך
 function enableSelectionMode() {
   document.body.style.cursor = "crosshair";
   
@@ -32,7 +41,7 @@ function enableSelectionMode() {
       };
       
       chrome.storage.local.set({ trackers }, () => {
-        alert("המעקב הופעל!");
+        alert("המעקב הופעל! הדף יתרענן אוטומטית בכל 2 דקות לבדיקת עדכונים.");
         location.reload();
       });
     });
@@ -51,52 +60,52 @@ function enableSelectionMode() {
   document.addEventListener('click', onClick, true);
 }
 
+// יצירת סלקטור ייחודי לאלמנט שנבחר
 function generateQuerySelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
   let path = [];
   while (el && el.nodeType === Node.ELEMENT_NODE) {
     let selector = el.nodeName.toLowerCase();
-    if (el.className && typeof el.className === 'string') {
-      const cls = el.className.trim().split(/\s+/)[0];
-      if (cls) selector += "." + CSS.escape(cls);
-    }
     let sib = el, nth = 1;
     while (sib = sib.previousElementSibling) { if (sib.nodeName === el.nodeName) nth++; }
     selector += `:nth-of-type(${nth})`;
     path.unshift(selector);
     el = el.parentNode;
-    if (el.nodeName.toLowerCase() === 'body') break;
+    if (!el || el.nodeName.toLowerCase() === 'body') break;
   }
   return path.join(" > ");
 }
 
-// לוגיקת מעקב ברקע
+// לוגיקת המעקב: בדיקה בטעינה ורענון אוטומטי
 chrome.storage.local.get(['trackers'], (data) => {
   const cleanUrl = getCleanUrl(window.location.href);
   const tracker = data.trackers ? data.trackers[cleanUrl] : null;
 
   if (tracker && tracker.selector) {
-    const checkInterval = setInterval(() => {
+    // 1. בדיקה מיידית עם עליית הדף (מטפל במקרה של רענון)
+    const checkExist = setInterval(() => {
       const target = document.querySelector(tracker.selector);
       if (target) {
-        clearInterval(checkInterval);
-        
-        // סינכרון ערך ראשוני
+        clearInterval(checkExist);
         const currentVal = target.innerText.trim();
-        if (tracker.lastValue !== currentVal) {
+        
+        // אם המחיר הנוכחי שונה ממה ששמרנו פעם אחרונה
+        if (currentVal !== tracker.lastValue) {
+          chrome.runtime.sendMessage({ 
+            type: "CHANGE_DETECTED", 
+            newValue: currentVal 
+          });
+          
+          // עדכון הערך החדש בזיכרון
           tracker.lastValue = currentVal;
           chrome.storage.local.set({ trackers: data.trackers });
         }
 
-        const observer = new MutationObserver(() => {
-          const newVal = target.innerText.trim();
-          if (newVal !== tracker.lastValue) {
-            chrome.runtime.sendMessage({ type: "CHANGE_DETECTED", newValue: newVal });
-            tracker.lastValue = newVal;
-            chrome.storage.local.set({ trackers: data.trackers });
-          }
-        });
-        observer.observe(target, { childList: true, characterData: true, subtree: true });
+        // 2. תזמון רענון אוטומטי של הדף בעוד 2 דקות
+        setTimeout(() => {
+          console.log("מבצע רענון אוטומטי לבדיקת מחיר...");
+          location.reload();
+        }, 120000); // 120,000 מילישניות = 2 דקות
       }
     }, 1000);
   }

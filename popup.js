@@ -1,16 +1,10 @@
-function getCleanUrl(url) {
-  try {
-    const urlObj = new URL(url);
-    return urlObj.origin + urlObj.pathname;
-  } catch (e) { return url; }
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.url.startsWith('http')) return;
 
-  const cleanUrl = getCleanUrl(tab.url);
+  const cleanUrl = new URL(tab.url).origin + new URL(tab.url).pathname;
 
+  // בדיקת מעקב קיים
   chrome.storage.local.get(['trackers'], (data) => {
     const trackers = data.trackers || {};
     if (trackers[cleanUrl]) {
@@ -19,21 +13,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // כפתור בחירה
   document.getElementById('startSelection').addEventListener('click', () => {
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      function: () => {
-        // קריאה לפונקציה שנמצאת ב-content.js
-        if (typeof enableSelectionMode === 'function') {
-          enableSelectionMode();
-        } else {
-          alert("אנא רענן את הדף ונסה שוב.");
-        }
+    chrome.tabs.sendMessage(tab.id, { action: "ENABLE_SELECTION_MODE" }, (response) => {
+      if (chrome.runtime.lastError) {
+        alert("יש לרענן את הדף (F5) לפני הבחירה הראשונה.");
       }
+      window.close();
     });
-    window.close();
   });
 
+  // כפתור מחיקה
   document.getElementById('deleteTrack').addEventListener('click', () => {
     chrome.storage.local.get(['trackers'], (data) => {
       let trackers = data.trackers || {};
