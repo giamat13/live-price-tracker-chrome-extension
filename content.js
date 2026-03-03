@@ -1,4 +1,3 @@
-// פונקציית עזר לניקוי ה-URL כדי לשמור על עקביות בזיכרון
 function getCleanUrl(url) {
   try {
     const urlObj = new URL(url);
@@ -6,7 +5,6 @@ function getCleanUrl(url) {
   } catch(e) { return url; }
 }
 
-// מאזין להודעות מהפופאפ להפעלת מצב בחירה
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "ENABLE_SELECTION_MODE") {
     enableSelectionMode();
@@ -15,7 +13,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
-// פונקציה להפעלת מצב בחירת אלמנט ויזואלי על המסך
 function enableSelectionMode() {
   document.body.style.cursor = "crosshair";
   
@@ -41,8 +38,8 @@ function enableSelectionMode() {
       };
       
       chrome.storage.local.set({ trackers }, () => {
-        alert("המעקב הופעל! הדף יתרענן אוטומטית בכל 2 דקות לבדיקת עדכונים.");
-        location.reload();
+        alert("המעקב הופעל! התוסף יזהה שינויים אוטומטית בזמן אמת.");
+        startObserving(selector, trackers[cleanUrl].lastValue, trackers);
       });
     });
     cleanUp();
@@ -60,7 +57,6 @@ function enableSelectionMode() {
   document.addEventListener('click', onClick, true);
 }
 
-// יצירת סלקטור ייחודי לאלמנט שנבחר
 function generateQuerySelector(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
   let path = [];
@@ -76,37 +72,52 @@ function generateQuerySelector(el) {
   return path.join(" > ");
 }
 
-// לוגיקת המעקב: בדיקה בטעינה ורענון אוטומטי
+function startObserving(selector, lastKnownValue, allTrackers) {
+  let currentLastValue = lastKnownValue;
+
+  // מאזין ל-body כולו - כך גם אם האלמנט מוחלף לגמרי, נזהה את השינוי
+  const observer = new MutationObserver(() => {
+    const target = document.querySelector(selector);
+    if (!target) return;
+
+    const newValue = target.innerText.trim();
+    if (newValue && newValue !== currentLastValue) {
+      console.log(`Live Price Tracker: שינוי זוהה! "${currentLastValue}" -> "${newValue}"`);
+      
+      chrome.runtime.sendMessage({ 
+        type: "CHANGE_DETECTED", 
+        newValue: newValue 
+      });
+
+      currentLastValue = newValue;
+      const cleanUrl = getCleanUrl(window.location.href);
+      allTrackers[cleanUrl].lastValue = newValue;
+      chrome.storage.local.set({ trackers: allTrackers });
+    }
+  });
+
+  // מאזין ל-body כולו במקום לאלמנט הספציפי
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+
+  console.log("Live Price Tracker: מעקב פעיל על ->", selector);
+}
+
 chrome.storage.local.get(['trackers'], (data) => {
   const cleanUrl = getCleanUrl(window.location.href);
-  const tracker = data.trackers ? data.trackers[cleanUrl] : null;
+  const trackers = data.trackers || {};
+  const tracker = trackers[cleanUrl];
 
   if (tracker && tracker.selector) {
-    // 1. בדיקה מיידית עם עליית הדף (מטפל במקרה של רענון)
     const checkExist = setInterval(() => {
       const target = document.querySelector(tracker.selector);
       if (target) {
         clearInterval(checkExist);
-        const currentVal = target.innerText.trim();
-        
-        // אם המחיר הנוכחי שונה ממה ששמרנו פעם אחרונה
-        if (currentVal !== tracker.lastValue) {
-          chrome.runtime.sendMessage({ 
-            type: "CHANGE_DETECTED", 
-            newValue: currentVal 
-          });
-          
-          // עדכון הערך החדש בזיכרון
-          tracker.lastValue = currentVal;
-          chrome.storage.local.set({ trackers: data.trackers });
-        }
-
-        // 2. תזמון רענון אוטומטי של הדף בעוד 2 דקות
-        setTimeout(() => {
-          console.log("מבצע רענון אוטומטי לבדיקת מחיר...");
-          location.reload();
-        }, 120000); // 120,000 מילישניות = 2 דקות
+        startObserving(tracker.selector, tracker.lastValue, trackers);
       }
-    }, 1000);
+    }, 500);
   }
 });

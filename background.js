@@ -1,4 +1,3 @@
-// הגדרת בדיקה כל 10 דקות (מתוקן)
 if (typeof chrome !== 'undefined' && chrome.alarms) {
   chrome.alarms.create("checkPrices", { periodInMinutes: 10 });
 
@@ -9,12 +8,13 @@ if (typeof chrome !== 'undefined' && chrome.alarms) {
   });
 }
 
-// מאזין להתראות מהדף (מתוקן ללא אייקון חובה)
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "CHANGE_DETECTED") {
-    chrome.notifications.create({
+    // ID ייחודי בכל התראה כדי שלא תחליף את הקודמת
+    const notifId = "price_change_" + Date.now();
+    chrome.notifications.create(notifId, {
       type: 'basic',
-      iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', // אייקון שקוף זמני
+      iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
       title: 'מחיר השתנה!',
       message: `הערך החדש הוא: ${message.newValue}`,
       priority: 2
