@@ -20,7 +20,6 @@ function enableSelectionMode() {
     e.target.style.outline = "3px solid #4285f4";
     e.target.style.outlineOffset = "-3px";
   };
-  
   const onMouseOut = (e) => { e.target.style.outline = ""; };
 
   const onClick = (e) => {
@@ -36,7 +35,6 @@ function enableSelectionMode() {
         selector: selector, 
         lastValue: e.target.innerText.trim() 
       };
-      
       chrome.storage.local.set({ trackers }, () => {
         alert("המעקב הופעל! התוסף יזהה שינויים אוטומטית בזמן אמת.");
         startObserving(selector, trackers[cleanUrl].lastValue, trackers);
@@ -72,31 +70,46 @@ function generateQuerySelector(el) {
   return path.join(" > ");
 }
 
+function checkOnLoad(selector, lastValue, trackers) {
+  const cleanUrl = getCleanUrl(window.location.href);
+  const target = document.querySelector(selector);
+  if (!target) return;
+
+  const currentValue = target.innerText.trim();
+  if (currentValue && currentValue !== lastValue) {
+    console.log(`Live Price Tracker [טעינה]: שינוי זוהה! "${lastValue}" -> "${currentValue}"`);
+    chrome.runtime.sendMessage({ 
+      type: "CHANGE_DETECTED", 
+      oldValue: lastValue,
+      newValue: currentValue 
+    });
+    trackers[cleanUrl].lastValue = currentValue;
+    chrome.storage.local.set({ trackers });
+  }
+}
+
 function startObserving(selector, lastKnownValue, allTrackers) {
   let currentLastValue = lastKnownValue;
+  const cleanUrl = getCleanUrl(window.location.href);
 
-  // מאזין ל-body כולו - כך גם אם האלמנט מוחלף לגמרי, נזהה את השינוי
   const observer = new MutationObserver(() => {
     const target = document.querySelector(selector);
     if (!target) return;
 
     const newValue = target.innerText.trim();
     if (newValue && newValue !== currentLastValue) {
-      console.log(`Live Price Tracker: שינוי זוהה! "${currentLastValue}" -> "${newValue}"`);
-      
+      console.log(`Live Price Tracker [observer]: שינוי זוהה! "${currentLastValue}" -> "${newValue}"`);
       chrome.runtime.sendMessage({ 
         type: "CHANGE_DETECTED", 
+        oldValue: currentLastValue,
         newValue: newValue 
       });
-
       currentLastValue = newValue;
-      const cleanUrl = getCleanUrl(window.location.href);
       allTrackers[cleanUrl].lastValue = newValue;
       chrome.storage.local.set({ trackers: allTrackers });
     }
   });
 
-  // מאזין ל-body כולו במקום לאלמנט הספציפי
   observer.observe(document.body, {
     childList: true,
     subtree: true,
@@ -106,6 +119,7 @@ function startObserving(selector, lastKnownValue, allTrackers) {
   console.log("Live Price Tracker: מעקב פעיל על ->", selector);
 }
 
+// בטעינת הדף: בדיקה מיידית + הפעלת observer
 chrome.storage.local.get(['trackers'], (data) => {
   const cleanUrl = getCleanUrl(window.location.href);
   const trackers = data.trackers || {};
@@ -116,7 +130,12 @@ chrome.storage.local.get(['trackers'], (data) => {
       const target = document.querySelector(tracker.selector);
       if (target) {
         clearInterval(checkExist);
-        startObserving(tracker.selector, tracker.lastValue, trackers);
+
+        // 1. בדיקה מיידית — השוואה לערך השמור
+        checkOnLoad(tracker.selector, tracker.lastValue, trackers);
+
+        // 2. האזנה לשינויים בזמן אמת
+        startObserving(tracker.selector, trackers[cleanUrl].lastValue, trackers);
       }
     }, 500);
   }
