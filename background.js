@@ -10,17 +10,43 @@ if (typeof chrome !== 'undefined' && chrome.alarms) {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "CHANGE_DETECTED") {
-    sendNotification(message.oldValue, message.newValue);
+    sendNotification(message.oldValue, message.newValue, "מחיר השתנה!");
+  } else if (message.type === "COLOR_CHANGE_DETECTED") {
+    sendColorChangeNotification(message.oldColor, message.newColor, message.value);
+  } else if (message.type === "DISCOUNT_DETECTED") {
+    sendDiscountNotification(message.keyword, message.title);
   }
 });
 
-function sendNotification(oldValue, newValue) {
+function sendNotification(oldValue, newValue, title = "מחיר השתנה!") {
   const notifId = "price_change_" + Date.now();
   chrome.notifications.create(notifId, {
     type: 'basic',
     iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-    title: 'מחיר השתנה!',
+    title: title,
     message: `היה: ${oldValue}  ←  עכשיו: ${newValue}`,
+    priority: 2
+  });
+}
+
+function sendColorChangeNotification(oldColor, newColor, value) {
+  const notifId = "color_change_" + Date.now();
+  chrome.notifications.create(notifId, {
+    type: 'basic',
+    iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    title: 'צבע המחיר השתנה!',
+    message: `מחיר: ${value}\nצבע: ${oldColor} → ${newColor}`,
+    priority: 2
+  });
+}
+
+function sendDiscountNotification(keyword, title) {
+  const notifId = "discount_" + Date.now();
+  chrome.notifications.create(notifId, {
+    type: 'basic',
+    iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    title: '🎉 מבצע/הנחה זוהתה!',
+    message: `נמצא: "${keyword}"\nבדף: ${title}`,
     priority: 2
   });
 }

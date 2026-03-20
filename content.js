@@ -28,16 +28,18 @@ function enableSelectionMode() {
     
     const selector = generateQuerySelector(e.target);
     const cleanUrl = getCleanUrl(window.location.href);
+    const initialColor = window.getComputedStyle(e.target).color;
 
     chrome.storage.local.get(['trackers'], (data) => {
       let trackers = data.trackers || {};
       trackers[cleanUrl] = { 
         selector: selector, 
-        lastValue: e.target.innerText.trim() 
+        lastValue: e.target.innerText.trim(),
+        lastColor: initialColor
       };
       chrome.storage.local.set({ trackers }, () => {
         alert("המעקב הופעל! התוסף יזהה שינויים אוטומטית בזמן אמת.");
-        startObserving(selector, trackers[cleanUrl].lastValue, trackers);
+        startObserving(selector, trackers[cleanUrl].lastValue, trackers[cleanUrl].lastColor, trackers);
       });
     });
     cleanUp();
@@ -70,12 +72,14 @@ function generateQuerySelector(el) {
   return path.join(" > ");
 }
 
-function checkOnLoad(selector, lastValue, trackers) {
+function checkOnLoad(selector, lastValue, lastColor, trackers) {
   const cleanUrl = getCleanUrl(window.location.href);
   const target = document.querySelector(selector);
   if (!target) return;
 
   const currentValue = target.innerText.trim();
+  const currentColor = window.getComputedStyle(target).color;
+  
   if (currentValue && currentValue !== lastValue) {
     console.log(`Live Price Tracker [טעינה]: שינוי זוהה! "${lastValue}" -> "${currentValue}"`);
     chrome.runtime.sendMessage({ 
@@ -84,12 +88,48 @@ function checkOnLoad(selector, lastValue, trackers) {
       newValue: currentValue 
     });
     trackers[cleanUrl].lastValue = currentValue;
+    trackers[cleanUrl].lastColor = currentColor;
     chrome.storage.local.set({ trackers });
+  } else if (currentColor !== lastColor) {
+    console.log(`Live Price Tracker [טעינה]: שינוי צבע זוהה! "${lastColor}" -> "${currentColor}"`);
+    chrome.runtime.sendMessage({ 
+      type: "COLOR_CHANGE_DETECTED", 
+      oldColor: lastColor,
+      newColor: currentColor,
+      value: currentValue
+    });
+    trackers[cleanUrl].lastColor = currentColor;
+    chrome.storage.local.set({ trackers });
+  }
+  
+  // בדיקת discount/sale בtitle (אם מופעל)
+  chrome.storage.local.get(['discountAlerts'], (data) => {
+    if (data.discountAlerts === true) {
+      checkForDiscountInTitle();
+    }
+  });
+}
+
+function checkForDiscountInTitle() {
+  const discountKeywords = ['save', 'discount', 'sale', 'deal', 'offer', 'promo', 'מבצע', 'הנחה', 'סייל', 'מחיר מיוחד'];
+  const title = document.title.toLowerCase();
+  
+  for (const keyword of discountKeywords) {
+    if (title.includes(keyword.toLowerCase())) {
+      console.log(`Live Price Tracker: מילת הנחה זוהתה בכותרת! "${keyword}"`);
+      chrome.runtime.sendMessage({ 
+        type: "DISCOUNT_DETECTED", 
+        keyword: keyword,
+        title: document.title
+      });
+      break;
+    }
   }
 }
 
-function startObserving(selector, lastKnownValue, allTrackers) {
+function startObserving(selector, lastKnownValue, lastKnownColor, allTrackers) {
   let currentLastValue = lastKnownValue;
+  let currentLastColor = lastKnownColor;
   const cleanUrl = getCleanUrl(window.location.href);
 
   const observer = new MutationObserver(() => {
@@ -97,6 +137,8 @@ function startObserving(selector, lastKnownValue, allTrackers) {
     if (!target) return;
 
     const newValue = target.innerText.trim();
+    const newColor = window.getComputedStyle(target).color;
+    
     if (newValue && newValue !== currentLastValue) {
       console.log(`Live Price Tracker [observer]: שינוי זוהה! "${currentLastValue}" -> "${newValue}"`);
       chrome.runtime.sendMessage({ 
@@ -106,6 +148,18 @@ function startObserving(selector, lastKnownValue, allTrackers) {
       });
       currentLastValue = newValue;
       allTrackers[cleanUrl].lastValue = newValue;
+      allTrackers[cleanUrl].lastColor = newColor;
+      chrome.storage.local.set({ trackers: allTrackers });
+    } else if (newColor !== currentLastColor) {
+      console.log(`Live Price Tracker [observer]: שינוי צבע זוהה! "${currentLastColor}" -> "${newColor}"`);
+      chrome.runtime.sendMessage({ 
+        type: "COLOR_CHANGE_DETECTED", 
+        oldColor: currentLastColor,
+        newColor: newColor,
+        value: newValue
+      });
+      currentLastColor = newColor;
+      allTrackers[cleanUrl].lastColor = newColor;
       chrome.storage.local.set({ trackers: allTrackers });
     }
   });
@@ -113,7 +167,9 @@ function startObserving(selector, lastKnownValue, allTrackers) {
   observer.observe(document.body, {
     childList: true,
     subtree: true,
-    characterData: true
+    characterData: true,
+    attributes: true,
+    attributeFilter: ['style', 'class']
   });
 
   console.log("Live Price Tracker: מעקב פעיל על ->", selector);
@@ -131,11 +187,18 @@ chrome.storage.local.get(['trackers'], (data) => {
       if (target) {
         clearInterval(checkExist);
 
+        // אתחול הצבע אם לא קיים
+        if (!tracker.lastColor) {
+          tracker.lastColor = window.getComputedStyle(target).color;
+          trackers[cleanUrl].lastColor = tracker.lastColor;
+          chrome.storage.local.set({ trackers });
+        }
+
         // 1. בדיקה מיידית — השוואה לערך השמור
-        checkOnLoad(tracker.selector, tracker.lastValue, trackers);
+        checkOnLoad(tracker.selector, tracker.lastValue, tracker.lastColor, trackers);
 
         // 2. האזנה לשינויים בזמן אמת
-        startObserving(tracker.selector, trackers[cleanUrl].lastValue, trackers);
+        startObserving(tracker.selector, trackers[cleanUrl].lastValue, trackers[cleanUrl].lastColor, trackers);
       }
     }, 500);
   }

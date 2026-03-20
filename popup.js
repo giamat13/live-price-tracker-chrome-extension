@@ -4,6 +4,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const cleanUrl = new URL(tab.url).origin + new URL(tab.url).pathname;
 
+  // טעינת מצב ה-toggle
+  chrome.storage.local.get(['discountAlerts'], (data) => {
+    const discountToggle = document.getElementById('discountToggle');
+    discountToggle.checked = data.discountAlerts === true;
+  });
+
+  // שמירת מצב ה-toggle
+  document.getElementById('discountToggle').addEventListener('change', (e) => {
+    chrome.storage.local.set({ discountAlerts: e.target.checked }, () => {
+      console.log('Discount alerts:', e.target.checked);
+    });
+  });
+
   // בדיקת מעקב קיים
   chrome.storage.local.get(['trackers'], (data) => {
     const trackers = data.trackers || {};
