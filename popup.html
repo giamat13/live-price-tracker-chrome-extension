@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <style>
-    body { width: 220px; padding: 15px; font-family: sans-serif; text-align: center; }
+    body { width: 400px; padding: 15px; font-family: sans-serif; text-align: center; }
     button { 
       width: 100%; padding: 12px; border: none; cursor: pointer; 
       border-radius: 8px; font-weight: bold; margin-bottom: 8px;
     }
     #startSelection { background-color: #4285f4; color: white; }
     #deleteTrack { background-color: #ea4335; color: white; display: none; }
+    #viewHistory { background-color: #34a853; color: white; display: none; }
     button:hover { opacity: 0.9; }
     p { font-size: 11px; color: #666; }
     .toggle-container {
@@ -65,11 +66,108 @@
     input:checked + .slider:before {
       transform: translateX(20px);
     }
+    
+    /* גרף */
+    #chartContainer {
+      display: none;
+      margin-top: 15px;
+      padding: 10px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    #chartContainer.active {
+      display: block;
+    }
+    #priceChart {
+      width: 100%;
+      height: 250px;
+    }
+    .stats {
+      margin-top: 10px;
+      font-size: 11px;
+      color: #555;
+      text-align: right;
+      padding: 8px;
+      background: white;
+      border-radius: 6px;
+    }
+    .stats div {
+      margin: 4px 0;
+    }
+    .stat-label {
+      font-weight: bold;
+      color: #333;
+    }
+    #clearHistory {
+      background-color: #fbbc04;
+      color: #333;
+      font-size: 11px;
+      padding: 6px;
+      margin-top: 8px;
+    }
+    
+    /* אזור AI */
+    #aiAnalysisContainer {
+      display: none;
+      margin-top: 15px;
+      padding: 10px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+      color: white;
+    }
+    #aiAnalysisContainer.active {
+      display: block;
+    }
+    #aiAnalysisContent {
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .ai-section {
+      margin: 10px 0;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+    }
+    .ai-label {
+      font-weight: bold;
+      margin-bottom: 5px;
+      display: block;
+    }
+    .ai-value {
+      font-size: 14px;
+    }
+    .ai-score {
+      font-size: 24px;
+      font-weight: bold;
+      text-align: center;
+      margin: 10px 0;
+    }
+    .ai-recommendation {
+      text-align: center;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+    .ai-loading {
+      text-align: center;
+      padding: 20px;
+      color: rgba(255, 255, 255, 0.8);
+    }
   </style>
 </head>
 <body>
   <button id="startSelection">בחר אלמנט למעקב</button>
+  <p style="font-size: 10px; color: #666; margin: -5px 0 10px 0;">💡 טיפ: עדיף ללחוץ על קונטיינר שלם (div/section)</p>
   <button id="deleteTrack">מחק מעקב מהדף</button>
+  <button id="viewHistory">📊 הצג היסטורית מחיר</button>
+  <button id="aiSettings" style="background-color: #9c27b0; color: white; display: block;">🤖 הגדרות AI</button>
   
   <div class="toggle-container">
     <label class="toggle-label">
@@ -83,6 +181,25 @@
   </div>
   
   <p id="statusText">אין מעקב פעיל</p>
+  
+  <!-- אזור הגרף -->
+  <div id="chartContainer">
+    <h3 style="margin: 5px 0 10px 0; font-size: 14px; color: #333;">📈 היסטורית מחירים</h3>
+    <canvas id="priceChart"></canvas>
+    <div class="stats" id="statsContainer"></div>
+    <button id="clearHistory">🗑️ נקה היסטוריה</button>
+  </div>
+  
+  <!-- אזור ניתוח AI -->
+  <div id="aiAnalysisContainer">
+    <h3 style="margin: 5px 0 10px 0; font-size: 14px; color: #333;">🤖 ניתוח AI</h3>
+    <div id="aiAnalysisContent"></div>
+    <button id="refreshAI" style="background-color: #9c27b0; color: white; font-size: 11px; padding: 6px; margin-top: 8px;">🔄 רענן ניתוח</button>
+  </div>
+  
+  <script src="chart.umd.min.js"></script>
+
+  <script src="ai-analyzer.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

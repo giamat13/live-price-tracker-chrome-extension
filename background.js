@@ -15,6 +15,10 @@ chrome.runtime.onMessage.addListener((message) => {
     sendColorChangeNotification(message.oldColor, message.newColor, message.value);
   } else if (message.type === "DISCOUNT_DETECTED") {
     sendDiscountNotification(message.keyword, message.title);
+  } else if (message.type === "DISCOUNT_PRICE_DETECTED") {
+    sendDiscountPriceNotification(message.oldValue, message.newValue);
+  } else if (message.type === "DISCOUNT_REMOVED") {
+    sendDiscountRemovedNotification(message.keyword, message.title);
   }
 });
 
@@ -48,6 +52,28 @@ function sendDiscountNotification(keyword, title) {
     title: '🎉 מבצע/הנחה זוהתה!',
     message: `נמצא: "${keyword}"\nבדף: ${title}`,
     priority: 2
+  });
+}
+
+function sendDiscountPriceNotification(oldValue, newValue) {
+  const notifId = "discount_price_" + Date.now();
+  chrome.notifications.create(notifId, {
+    type: 'basic',
+    iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    title: '🎉 הנחה! מחיר חדש זוהה',
+    message: `מחיר ישן: ${oldValue}\n🎯 מחיר מבצע: ${newValue}`,
+    priority: 2
+  });
+}
+
+function sendDiscountRemovedNotification(keyword, title) {
+  const notifId = "discount_removed_" + Date.now();
+  chrome.notifications.create(notifId, {
+    type: 'basic',
+    iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    title: '❌ המבצע הסתיים',
+    message: `"${keyword}" הוסר מהכותרת\nבדף: ${title}`,
+    priority: 1
   });
 }
 

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>הגדרות AI - Live Price Tracker</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .system-info {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .info-row:last-child {
+      border-bottom: none;
+    }
+
+    .info-label {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .info-value {
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    #loadingModels {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .model-card {
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 15px;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .model-card:hover {
+      border-color: #667eea;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    }
+
+    .model-card.selected {
+      border-color: #667eea;
+      background: #f8f9ff;
+    }
+
+    .model-card.recommended {
+      border-color: #34a853;
+      background: #f0fff4;
+    }
+
+    .model-card.recommended::before {
+      content: "⭐ מומלץ";
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: #34a853;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .model-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .model-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .model-size {
+      background: #e3f2fd;
+      color: #1976d2;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .model-description {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .model-specs {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .spec-item {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .spec-label {
+      font-weight: 500;
+      color: #333;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-top: 10px;
+    }
+
+    .status-badge.downloaded {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .status-badge.not-downloaded {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 30px;
+    }
+
+    button {
+      flex: 1;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .alert {
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    .alert-info {
+      background: #e3f2fd;
+      color: #1565c0;
+      border-right: 4px solid #1976d2;
+    }
+
+    .alert-success {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border-right: 4px solid #4caf50;
+    }
+
+    .alert-error {
+      background: #ffebee;
+      color: #c62828;
+      border-right: 4px solid #f44336;
+    }
+
+    .progress-container {
+      display: none;
+      margin-top: 20px;
+    }
+
+    .progress-container.show {
+      display: block;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    .progress-text {
+      text-align: center;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .no-models {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .no-models-icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🤖 הגדרות AI</h1>
+      <p>בחר מודל לניתוח וחיזוי מחירים</p>
+    </div>
+
+    <div class="content">
+      <!-- מידע מערכת -->
+      <div class="section">
+        <div class="section-title">💻 מידע מערכת</div>
+        <div class="system-info">
+          <div class="info-row">
+            <span class="info-label">זיכרון זמין (RAM):</span>
+            <span class="info-value" id="systemRAM">בודק...</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">מעבד:</span>
+            <span class="info-value" id="systemCPU">בודק...</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">מודל נוכחי:</span>
+            <span class="info-value" id="currentModel">אף אחד</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- התראות -->
+      <div id="alertContainer"></div>
+
+      <!-- התקדמות הורדה -->
+      <div class="progress-container" id="progressContainer">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text" id="progressText">מוריד מודל...</div>
+      </div>
+
+      <!-- רשימת מודלים -->
+      <div class="section">
+        <div class="section-title">📦 בחר מודל</div>
+        
+        <div id="loadingModels">
+          <div class="spinner"></div>
+          <p>טוען מודלים זמינים...</p>
+        </div>
+
+        <div id="modelsContainer" style="display: none;"></div>
+
+        <div id="noModels" class="no-models" style="display: none;">
+          <div class="no-models-icon">📭</div>
+          <p>לא נמצאו מודלים זמינים</p>
+          <p style="font-size: 14px; margin-top: 10px;">נסה לרענן את הדף</p>
+        </div>
+      </div>
+
+      <!-- כפתורים -->
+      <div class="button-group">
+        <button class="btn-secondary" id="backBtn">חזור</button>
+        <button class="btn-primary" id="saveBtn" disabled>שמור והורד מודל</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="ai-settings.js"></script>
+</body>
+</html>
