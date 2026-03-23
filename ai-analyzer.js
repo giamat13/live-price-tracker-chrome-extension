@@ -10,25 +10,70 @@ class PriceAIAnalyzer {
     this.isReady = false;
   }
 
-  // טעינת המודל - משתמש בחיזוי סטטיסטי (ללא TensorFlow)
+  // טעינת המודל מהזיכרון המקומי
   async loadModel() {
     try {
-      const settings = await chrome.storage.local.get(['selectedModel']);
-      this.modelInfo = settings.selectedModel || null;
-      this.model = null; // תמיד simplePrediction
-      this.isReady = true;
-      console.log('AI Analyzer: מוכן (חיזוי סטטיסטי)');
-      return true;
+      const settings = await chrome.storage.local.get(['selectedModel', 'modelData']);
+      
+      if (!settings.selectedModel) {
+        console.log('AI Analyzer: אין מודל נבחר');
+        return false;
+      }
+
+      if (!settings.modelData) {
+        console.log('AI Analyzer: המודל לא הורד עדיין');
+        return false;
+      }
+
+      this.modelInfo = settings.selectedModel;
+      
+      // אם זה מודל דמה - נשתמש בחיזוי פשוט
+      if (settings.modelData.isDummy) {
+        console.log('AI Analyzer: משתמש במודל דמה (חיזוי פשוט)');
+        this.model = null; // ישתמש ב-simplePrediction
+        this.isReady = true;
+        return true;
+      }
+      
+      // טעינת המודל מ-IndexedDB או מהזיכרון
+      if (typeof tf !== 'undefined') {
+        console.log('AI Analyzer: טוען מודל...', this.modelInfo.name);
+        
+        // כאן נטען את המודל בפועל
+        // לעכשיו נשתמש במודל דמה לפיתוח
+        this.model = await this.createDummyModel();
+        this.isReady = true;
+        
+        console.log('AI Analyzer: המודל נטען בהצלחה!');
+        return true;
+      } else {
+        console.error('AI Analyzer: TensorFlow.js לא נטען');
+        return false;
+      }
     } catch (error) {
-      console.error('AI Analyzer: שגיאה:', error);
-      this.isReady = true;
-      return true;
+      console.error('AI Analyzer: שגיאה בטעינת המודל:', error);
+      return false;
     }
   }
 
-  // TensorFlow.js לא נתמך ב-MV3 - משתמשים בחיזוי פשוט בלבד
+  // יצירת מודל דמה לפיתוח (יוחלף במודל אמיתי)
   async createDummyModel() {
-    return null;
+    if (typeof tf === 'undefined') return null;
+    
+    const model = tf.sequential({
+      layers: [
+        tf.layers.dense({ inputShape: [10], units: 32, activation: 'relu' }),
+        tf.layers.dense({ units: 16, activation: 'relu' }),
+        tf.layers.dense({ units: 1 })
+      ]
+    });
+    
+    model.compile({
+      optimizer: 'adam',
+      loss: 'meanSquaredError'
+    });
+    
+    return model;
   }
 
   // ניתוח היסטורית מחירים
@@ -63,8 +108,13 @@ class PriceAIAnalyzer {
       recommendation: ''
     };
 
-    // חיזוי מחיר עתידי (חיזוי סטטיסטי)
-    analysis.prediction = this.simplePrediction(prices);
+    // חיזוי מחיר עתידי
+    if (this.isReady && this.model) {
+      analysis.prediction = await this.predictNextPrice(prices);
+    } else {
+      // חיזוי פשוט ללא מודל
+      analysis.prediction = this.simplePrediction(prices);
+    }
 
     // חישוב ציון קנייה
     analysis.buyScore = this.calculateBuyScore(analysis);
@@ -156,9 +206,44 @@ class PriceAIAnalyzer {
     };
   }
 
-  // חיזוי מחיר - חיזוי סטטיסטי חכם
+  // חיזוי עם מודל ML
   async predictNextPrice(prices) {
-    return this.simplePrediction(prices);
+    if (!this.model) {
+      return this.simplePrediction(prices);
+    }
+
+    try {
+      // נרמול נתונים
+      const normalized = this.normalizePrices(prices);
+      const last10 = normalized.slice(-10);
+      
+      // אם אין מספיק נתונים, נוסיף padding
+      while (last10.length < 10) {
+        last10.unshift(last10[0] || 0);
+      }
+
+      // חיזוי
+      const input = tf.tensor2d([last10]);
+      const prediction = this.model.predict(input);
+      const predictedNormalized = await prediction.data();
+      
+      // דה-נרמול
+      const predictedPrice = this.denormalizePrice(predictedNormalized[0], prices);
+      
+      // ניקוי
+      input.dispose();
+      prediction.dispose();
+
+      return {
+        nextWeek: predictedPrice.toFixed(2),
+        confidence: 0.75, // ניתן לשפר
+        method: 'ml_model',
+        modelName: this.modelInfo?.name || 'unknown'
+      };
+    } catch (error) {
+      console.error('AI Analyzer: שגיאה בחיזוי:', error);
+      return this.simplePrediction(prices);
+    }
   }
 
   // נרמול מחירים
